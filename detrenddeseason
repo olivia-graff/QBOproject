@@ -1,0 +1,200 @@
+lat2 = ncread('/home/ograff/scripts/homework/ModesofClimate/QBOproject/QBOproject_data/tes_chem_data/mon_o3_all.nc','lat'); 
+lon2 = ncread('/home/ograff/scripts/homework/ModesofClimate/QBOproject/QBOproject_data/tes_chem_data/mon_o3_all.nc','lon');
+
+o3 = ncread('/home/ograff/scripts/homework/ModesofClimate/QBOproject/QBOproject_data/tes_chem_data/mon_o3_all.nc','o3'); 
+q = ncread('/home/ograff/scripts/homework/ModesofClimate/QBOproject/QBOproject_data/tes_chem_data/mon_q_all.nc','q');
+t = ncread('/home/ograff/scripts/homework/ModesofClimate/QBOproject/QBOproject_data/tes_chem_data/mon_t_all.nc','t');
+
+%squeezing all variables to 70 hpa (26th level) 
+ozone = squeeze(o3(:,:,26,:)); h2o = squeeze(q(:,:,26,:)); temp = squeeze(t(:,:,26,:)); 
+
+% figure(1); pcolor(longitude,latitude,nanmean(ozone,3)'); shading flat; colorbar; 
+figure(2); pcolor(lon2,lat2,nanmean(h2o,3)'); shading flat; colorbar; 
+% figure(3); pcolor(longitude,latitude,nanmean(temp,3)'); shading flat; colorbar; 
+
+%reformat variables
+ozone_reformat = NaN*zeros(320,160,13,12);%lon x lat x years x months 
+h2o_reformat = NaN*zeros(320,160,13,12);
+temp_reformat = NaN*zeros(320,160,13,12);
+timestep = 0; 
+for n = 1:13
+    ozone_reformat(:,:,n,:) = ozone(:,:,timestep+1:timestep+12);
+    h2o_reformat(:,:,n,:) = h2o(:,:,timestep+1:timestep+12);
+    temp_reformat(:,:,n,:) = temp(:,:,timestep+1:timestep+12);
+    timestep = timestep +12;
+end
+ 
+%calculate long term montly mean
+ozone_permonth_mean = NaN*zeros(320,160,12);
+h2o_permonth_mean = NaN*zeros(320,160,12);
+temp_permonth_mean = NaN*zeros(320,160,12);
+for n = 1:12
+    ozone_permonth_mean(:,:,n) = nanmean(squeeze(ozone_reformat(:,:,:,n)),3);
+    h2o_permonth_mean(:,:,n) = nanmean(squeeze(h2o_reformat(:,:,:,n)),3);
+    temp_permonth_mean(:,:,n) = nanmean(squeeze(temp_reformat(:,:,:,n)),3);
+end
+
+%remove long term mean 
+ozone_removeannual = zeros(320,160,13,12);
+h2o_removeannual = zeros(320,160,13,12);
+temp_removeannual = zeros(320,160,13,12);
+for i = 1:320
+    for j = 1:160
+        for n = 1:13
+            for nn = 1:12
+                ozone_removeannual(i,j,n,nn) = ozone_reformat(i,j,n,nn) - ozone_permonth_mean(i,j,nn);
+                h2o_removeannual(i,j,n,nn) = h2o_reformat(i,j,n,nn) - h2o_permonth_mean(i,j,nn);
+                temp_removeannual(i,j,n,nn) = temp_reformat(i,j,n,nn) - temp_permonth_mean(i,j,nn);
+            end
+        end
+    end
+end
+
+%reformat back
+ozone_reformatback = zeros(320,160,156); 
+h2o_reformatback = zeros(320,160,156); 
+temp_reformatback = zeros(320,160,156); 
+timestep = 0;
+for n = 1:13
+    ozone_reformatback(:,:,timestep+1:timestep+12) = ozone_removeannual(:,:,n,1:12); 
+    h2o_reformatback(:,:,timestep+1:timestep+12) = h2o_removeannual(:,:,n,1:12); 
+    temp_reformatback(:,:,timestep+1:timestep+12) = temp_removeannual(:,:,n,1:12); 
+    timestep = timestep +12;
+end
+
+%detrend
+ozone_detrended = zeros(320,160,156);
+h2o_detrended = zeros(320,160,156);
+temp_detrended = zeros(320,160,156);
+for i = 1:320
+    for j = 1:160
+        ozone_detrended(i,j,:) = detrend(squeeze(ozone_reformatback(i,j,:)));
+        h2o_detrended(i,j,:) = detrend(squeeze(h2o_reformatback(i,j,:)));
+        temp_detrended(i,j,:) = detrend(squeeze(temp_reformatback(i,j,:)));
+    end
+end
+
+%reformat detrended data
+ozone_reformat_detrended = zeros(320,160,13,12);
+h2o_reformat_detrended = zeros(320,160,13,12);
+temp_reformat_detrended = zeros(320,160,13,12);
+timestep = 0; 
+for n = 1:13
+    ozone_reformat_detrended(:,:,n,1:12) = ozone_detrended(:,:,timestep+1:timestep +12); 
+    h2o_reformat_detrended(:,:,n,1:12) = h2o_detrended(:,:,timestep+1:timestep +12); 
+    temp_reformat_detrended(:,:,n,1:12) = temp_detrended(:,:,timestep+1:timestep +12); 
+    timestep = timestep +12;
+end
+
+
+%% alternate method completed by project partner ------------------------------------------------------------------------------
+%% Surface components (mslp and sst)
+clc;clearvars -except sst_detrended
+close all;
+
+mslp1 = ncread('/mars/parfitt/eraint/surface_variables/mslp/mslp_79-18.nc','msl');%,[1 1 1], [Inf Inf Inf],[3 3 4]);
+%sst = ncread('/mars/parfitt/eraint/surface_variables/sst/sst_79-18.nc','sst')%,[1 1 1], [Inf Inf Inf],[3 3 4]);
+lat = ncread('/mars/parfitt/eraint/surface_variables/sst/sst_79-18.nc','latitude');
+lon = ncread('/mars/parfitt/eraint/surface_variables/sst/sst_79-18.nc','longitude');
+lat2 = lat(1:3:241);lon2 = lon(1:3:480);
+mslp_all = mslp1(1:3:480,1:3:241,1:4:58440); 
+
+% sst = ncread('/mars/parfitt/eraint/surface_variables/sst/sst_79-18.nc','sst');%,[1 1 1], [Inf Inf Inf],[3 3 4]);
+%mslp_all = sst(1:3:480,1:3:241,1:4:58440); %when running it for sst  
+ 
+
+% %cd /Users/ilkyeongma/ilkma/PhD/2022_Spring/MET6155/eraint_surface;
+% fnm = '/mars/parfitt/eraint/surface_variables/mslp/mslp_79-18.nc';
+% %fnm = '/mars/parfitt/eraint/surface_variables/mslp/sst_79-18.nc'
+% % fnm='mslp_79-18.nc';
+% % fnm='sst_79-18.nc';
+% lon=ncread(fnm,'longitude');
+% lat=ncread(fnm,'latitude');
+% 
+% lon2=lon(1:3:end);
+% lat2=lat(1:3:end);
+% 
+% % make 6 hourly data to daily (every 0000UTC) & every third point starting from 90N, 0E
+% kk=14610;
+% mslp1=ncread(fnm,'msl',[1 1 1],[Inf Inf kk/2],[3 3 4]); %sst
+% mslp2=ncread(fnm,'msl',[1 1 (kk/2+1)*4-3],[Inf Inf kk/2],[3 3 4]); %sst
+% 
+% mslp_all=cat(3,mslp1,mslp2);
+
+% 05~17 only
+q=datenum([1979 01 01]):1:datenum([2018 12 31]);
+qq1=datenum([2005 01 01]);
+aa=find(q==qq1)
+qq2=datenum([2017 12 31]);
+bb=find(q==qq2)
+
+mslp=mslp_all(:,:,aa:bb);
+
+%% monthly mean
+clc;clearvars -except mslp sst_detrended
+close all;
+
+k=1;st=0;en=0;
+for i=2005:2017;
+    if rem(i,4)==0 % leap
+        en=en+366;
+        dailyValues = mslp(:,:,st+1:en);
+        
+        daysInMonths = [31,29,31,30,31,30,31,31,30,31,30,31];
+        monthEnds = [0, cumsum(daysInMonths)];
+            for m = 1 : length(monthEnds)-1
+                firstDay = monthEnds(m)+1;
+                lastDay = monthEnds(m+1);
+                monthlyAverage(:,:,k) = mean(dailyValues(:,:,firstDay:lastDay),3);
+                k=k+1;
+            end
+         st=st+366;
+    else % normal
+        en=en+365;
+        dailyValues = mslp(:,:,st+1:en);
+        
+        daysInMonths = [31,28,31,30,31,30,31,31,30,31,30,31];
+        monthEnds = [0, cumsum(daysInMonths)];
+            for m = 1 : length(monthEnds)-1
+                firstDay = monthEnds(m)+1;
+                lastDay = monthEnds(m+1);
+                monthlyAverage(:,:,k) = mean(dailyValues(:,:,firstDay:lastDay),3);
+                k=k+1;
+            end
+         st=st+365;
+    end
+
+end
+
+% detrend
+
+for i=1:160;
+    for j=1:81;
+        detrended_mslp(i,j,:)=detrend(squeeze(monthlyAverage(i,j,:)));
+    end
+end
+
+% deseasonalize
+all_sum=zeros(160,81,13,12);
+for k=1:12;
+    aa=[];
+        for i=1:13;
+            aa=cat(3,aa,detrended_mslp(:,:,12*(i-1)+k));
+        end
+    all_sum(:,:,:,k)=aa;
+end
+
+mean_mslp=squeeze(mean(all_sum,3,'omitnan'));
+
+long_mean_mslp=[];
+for j=1:13;
+long_mean_mslp=cat(3,long_mean_mslp,mean_mslp);
+end
+
+% anomalies
+%sst_detrended=detrended_mslp-long_mean_mslp;
+
+mslp_detrended=detrended_mslp-long_mean_mslp;
+
+% save sst_detrended,mslp_detrended,lat2,lon2
+
