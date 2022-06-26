@@ -1,0 +1,816 @@
+%% MET6155 Quasi-Biennial Oscillation (QBO) - Completed by Olivia Graff & Illkyeong Ma 
+clc;clear;
+close all;
+%cd /Users/ilkyeongma/ilkma/PhD/2022_Spring/MET6155/Presentation(QBO);
+ 
+% qbo.dat (1953/01 ~ 2021/11)
+% {'Monthly mean zonal wind components u (0.1 m/s)'                  }
+% {'IIIII=91700      CANTON ISLAND  02 46 S  171 43 W'               }
+% {'     =43599      GAN/MALEDIVES  00 41 S   73 09 E'               }
+% {'     =48694/698  SINGAPORE      01 22 N  103 55 E'               }
+% {'YY=year  MM=month'                                               }
+% {'N=1-9 if less than 10 daily values, =0 inter/extrapolated values'}
+% {'IIIII YYMM  70hPaN 50hPaN 40hPaN 30hPaN 20hPaN 15hPaN 10hPaN'    }
+
+%id=importdata('qbo.dat');
+id = importdata('/home/ograff/scripts/homework/ModesofClimate/QBOproject/QBOproject_data/qbo.dat');
+data=id.data;
+%% monthly mean zonal wind components
+
+% focus on 1956/01 ~ 2021/11
+mmzw=zeros(6,791);
+k=1;
+for i=37:size(data,1)
+    % 70hPa
+    mmzw(7,k)=data(i,3);
+
+    % 50hPa
+    mmzw(6,k)=data(i,4);
+
+    % 40hPa
+    mmzw(5,k)=data(i,5);
+
+    % 30hPa ok
+    if data(i,6)==0 && data(i,2)~=2003
+        mmzw(4,k)=data(i,7);
+    else
+        mmzw(4,k)=data(i,6);
+    end
+
+    % 20hPa ok
+    if data(i,6)==0 & data(i,2)~=2003 | data(i,2)== 6711 | data(i,2)== 6802
+        mmzw(3,k)=data(i,8);
+    else
+        mmzw(3,k)=data(i,7);
+    end
+
+    % 15hPa
+    aa=find(isnan(data(i,:)));
+    if aa(1)==14
+        mmzw(2,k)=data(i,10);
+    elseif aa(1)==13
+        mmzw(2,k)=data(i,9);
+    elseif aa(1)==12
+        if data(i,6)==0 & data(i,2)~=2003
+            mmzw(2,k)=data(i,9);
+        else 
+            abc=max([abs(data(i,8)) abs(data(i,9))]);
+            idx=find(abs(data(i,:))==abc);
+            mmzw(2,k)=data(i,idx(1));   
+        end
+    elseif aa(1)==11
+        if data(i,6)==0
+            mmzw(2,k)=data(i,9);
+        else
+            mmzw(2,k)=data(i,8);
+        end
+    elseif aa(1)==10
+        mmzw(2,k)=data(i,8);
+    end
+
+    % 10hPa
+    if aa(1)==14 
+        mmzw(1,k)=data(i,12);
+    elseif aa(1)==13 
+        mmzw(1,k)=data(i,11);
+    elseif aa(1)==12 
+        abc=max([abs(data(i,10)) abs(data(i,11))]);
+        idx=find(abs(data(i,:))==abc);
+        mmzw(1,k)=data(i,idx(1));
+    elseif aa(1)==11
+        if data(i,6)==0
+            mmzw(1,k)=data(i,10);
+        else
+            abc=max([abs(data(i,9)) abs(data(i,10))]);
+            idx=find(abs(data(i,:))==abc);
+            mmzw(1,k)=data(i,idx(1));
+        end
+    elseif aa(1)==10
+        mmzw(1,k)=data(i,9);
+    end
+
+    k=k+1;
+end
+
+% whos mmzw: pressure levels x time
+mmzw=0.1*mmzw; % m/s
+
+%% Process the data & Plot 70hPa monthly mean zonal wind u
+
+% 1956/01 ~ 2021/11
+time=datenum(1956,[1:((2021-1956)+1)*12].',1);
+time=time(1:end-1);
+
+close(figure(1));figure(1);
+subplot(2,1,1);
+plot(time,mmzw(7,:),'k','LineWidth',2);grid on;
+xlim([time(1) time(end)]);
+ylim([-30 30]);
+xticks([time(1:12*4:end)]);
+xticklabels(datestr(time(1:12*4:end),'yyyy'));
+xlabel('Year');
+ylabel('Zonal Wind (m/s)');
+title('70hPa Monthly Mean Zonal Wind (m/s)');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',18);
+
+% detrend
+for k=1:7
+    detrend_mmzw(k,:)=detrend(mmzw(k,:));
+end
+
+% remove the seasoanl cycles
+all_detrend_mmzw=[];
+
+% 1956/01 - 2020/12
+for i=1:65
+    %datestr(time(12*(i-1)+1:12*i));
+    aa=detrend_mmzw(:,12*(i-1)+1:12*i);
+    all_detrend_mmzw=cat(3,all_detrend_mmzw,aa);
+end
+
+% 2021/01 - 2021/11
+last_detrend_mmzw=detrend_mmzw(:,end-10:end);
+
+for k=1:12
+    if k==12 % Dec
+        mean_detrend_mmzw(:,k)=mean(squeeze(all_detrend_mmzw(:,k,:)),2);
+        
+    else % Jan-Nov
+        mean_detrend_mmzw(:,k)=mean([squeeze(all_detrend_mmzw(:,k,:)) last_detrend_mmzw(:,k)],2);
+    end
+end
+
+mean_all_detrend_mmzw=[];
+
+for i=1:66
+    mean_all_detrend_mmzw=cat(2,mean_all_detrend_mmzw,mean_detrend_mmzw);
+end
+mean_all_detrend_mmzw=mean_all_detrend_mmzw(:,1:end-1);
+
+% monthly mean zonal wind anomalies
+mmzw_ano=detrend_mmzw-mean_all_detrend_mmzw;
+
+figure(1);subplot(2,1,2);
+plot(time,mmzw_ano(7,:),'k','LineWidth',2);grid on;
+xlim([time(1) time(end)]);
+ylim([-30 30]);
+xticks([time(1:12*4:end)]);
+xticklabels(datestr(time(1:12*4:end),'yyyy'));
+xlabel('Year');
+ylabel('Zonal Wind Anomalies');
+title({'Deseasonalized/Detrended 70 hPa','Monthly Mean Zonal Wind Anomalies'});
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',18);
+
+%% Time–height cross section of monthly mean zonal wind near the Equator
+
+% prssure level
+pre=[10 15 20 30 40 50 70];
+[X,Z]=meshgrid(time,pre);
+
+close(figure(2));fig=figure(2);
+set(gcf,'position',[1 41 1000 950]);
+ax = gobjects(1,7);
+for i=1:6
+    if i==6
+        st=12*(11*(i-1))+1;en=12*11*i-1;
+    else
+        st=12*(11*(i-1))+1;en=12*11*i;
+    end
+    ax(i)=subplot(6,1,i);
+    contourf(X(:,st:en),Z(:,st:en),mmzw(:,st:en),[-40:5:40]); % 5 m/s interval
+    set(gca,'Ydir','reverse');
+    %colorbar;
+    caxis([-40 40]); cmocean balance; %colormap(cmap);
+    xticks([time(st:12:en)]);
+    xticklabels(datestr(time(st:12:en),'yyyy'));
+    yticks(pre);
+    ylabel('pressure (hPa)')
+    set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',13);
+    
+end
+
+h = axes(fig,'visible','off'); 
+h.Title.Visible = 'on';
+h.XLabel.Visible = 'on';
+xlabel(h,'Year','FontWeight','bold');
+title(h,{'Time–height Cross Section of Monthly Mean Zonal Wind Anomalies','at "near" equatorial stations'});%: Canton Island, 3°S/172°W (Jan 1953 - Aug 1967), Gan/Maledive Islands, 1°S/73°E (Sep 1967 - Dec 1975) and Singapore, 1°N/104°E (since Jan 1976)from "Near the Equator" points in qb');
+c = colorbar(h,'Position',[0.93 0.168 0.022 0.7]);
+ylabel(c,'Monthly Mean Zonal Wind (m/s)','FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+cmocean balance;
+caxis(h,[-40,40]);            
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+%% Power spectra for mmzw @ 70hpa (detrended and not detrended) (30 hpa = 4th index) 
+t = (0:791-1)*1; 
+% figure(20);
+% plot(t,mmzw(4,:)); 
+% figure(21);
+% plot(t,mean_all_detrend_mmzw(4,:));
+y = fft(mmzw(7,:));%fast fourier transform, find the coefficients (complex numbers)
+y(1) = [];%removes all 0Hz component, i.e. mean value of signal
+n = length(y);
+%Just want indicies of y that go up to the 1/2 length of y, because n goes in
+%both directions, and since y is an odd number, we take floor to get rid of
+%the decimal point
+power = abs(y(1:floor(n/2))).^2;
+maxfreq = 1/2;
+%frequency vector goes from sum fraction of max frequency to max frequency, get a vector of frequency associated with each time step
+freq = ((1:n/2)/(n/2))*maxfreq;
+%plot(freq,log10(power),'x');
+period = 1./freq;
+
+figure(3);
+subplot(1,2,1); 
+plot(period,log10(power),'x');
+hold on;plot(period,log10(power),'x');
+%plot([365 365 365 365],[2 4 6 8]); plot([182 182 182 182],[2 4 6 8]);
+title('70 hPa Monthly Mean Zonal Wind Power Spectra'); xlabel('period');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+clear y; clear n; clear power; clear maxfreq; clear freq; clear period; 
+%detrended data
+y = fft(mmzw_ano(7,:));%fast fourier transform, find the coefficients (complex numbers)
+y(1) = [];%removes all 0Hz component, i.e. mean value of signal
+n = length(y);
+%Just want indicies of y that go up to the 1/2 length of y, because n goes in
+%both directions, and since y is an odd number, we take floor to get rid of
+%the decimal point
+power = abs(y(1:floor(n/2))).^2;
+maxfreq = 1/2;
+%frequency vector goes from sum fraction of max frequency to max frequency, get a vector of frequency associated with each time step
+freq = ((1:n/2)/(n/2))*maxfreq;
+%plot(freq,log10(power),'x');
+period = 1./freq;
+figure(3);
+subplot(1,2,2); 
+plot(period,log10(power),'x');
+hold on;plot(period,log10(power),'x');%plot([365 365 365 365],[2 4 6 8]); plot([182 182 182 182],[2 4 6 8]);
+title({'70 hPa Monthly Mean Zonal Wind Anomaly (m/s) Power Spectra',' (Detrended/Deseasonalized)'}); xlabel('period');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+%% Autocorrelation at 70 hpa 
+%-> I think for this stuff we have to pick a statistcally significant point
+%we have the code to do it and it's pretty simple so I figure we can just
+%decide on a point together tomorrow and do this then -- it I think we just
+%use the autocorr function on the timeseries at the point we choose 
+figure(4);
+autocorr(mmzw_ano(7,:),'NumLags',60);
+title({'Sample Autocorrelation of 70hPa Monthly Mean Zonal Wind (m/s) Anomalies','with 95% Confidence Intervals'}); 
+ylim([-1 1]);
+xlabel('Lag (months)');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+
+%% EOF analysis on monthly mean zonal wind components u
+
+% focus on 2005/01 - 2017/12 from 1956/01~2021/11
+tm=156; % total month
+%tm = 791;
+sst=(2005-1956)*12+1;
+eed=sst-1+12*13;
+
+zw_eof2=mmzw_ano(:,sst:eed);
+time2=time(sst:eed);
+
+eof_cov=zw_eof2*zw_eof2.';
+
+[C,L]=eigs(eof_cov); 
+eigenvalues=diag(L)/sum(diag(L));
+
+% Plot the eigenvalue spectrum
+figure(5);
+plot(eigenvalues,'k+','MarkerSize',10,'LineWidth',2);
+grid on;
+xlabel('Mode');
+ylabel('Fractional Variance Explained(%)'); % fractional variance explained
+title('Spectrum of eigenvalues');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',18);
+firstmode = C(:,1); %pulling the first mode
+secondmode = C(:,2);%pulling the second mode  
+%%
+% Plot the first 2 EOF's graphically 
+figure(6);
+h1=plot(firstmode,pre,'-ob','LineWidth',2);hold on;grid on;
+h2=plot(secondmode,pre,'-or','LineWidth',2);axis ij; xlim([-0.75 0.75]);
+legend([h1 h2],'First mode','Second mode');
+xlabel('Amplitude');
+ylabel('Pressure (hPa)');
+yticks(pre);
+title('Two Leading EOFs of Monthly Mean Zonal Wind Anomalies');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+% 
+% mmzw10_70 = mmzw_ano(1,:) - mmzw_ano(7,:)
+% 
+% %make some dummy matricies to get this party started 
+% %first_corr = zeros(7,791);]
+% c1070 = zeros(1,791); 
+% for i = 1:791
+% [r,p] = corrcoef(mmzw_ano(1,i),mmzw_ano(7,i));
+% c1070(1,i) = r(2,1); 
+% end
+% 
+% first_corr = corrcoef(firstmode,mmzw10_70,'Alpha',0.02);
+
+
+
+%%
+% -> get ts of how the mode varies throughout time (monthly) 
+pc_1 = C(:,1).'*zw_eof2; 
+pc_2 = C(:,2).'*zw_eof2;
+
+%plot first and second principal modes
+figure(7);
+subplot(2,1,1); 
+plot(time2,pc_1,'k','LineWidth',2);grid on;ylim([-60 60]);
+xlim([time2(1) time2(end)]);
+xticks([time2(1:12:end)]);
+xticklabels(datestr(time2(1:12:end),'yyyy'));
+title('First principal component, Monthly Mean Zonal Wind Anomaly'); xlabel('Year');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+subplot(2,1,2);
+plot(time2,pc_2,'k','LineWidth',2);grid on;ylim([-60 60]);
+xlim([time2(1) time2(end)]);
+xticks([time2(1:12:end)]);
+xticklabels(datestr(time2(1:12:end),'yyyy'));
+title('Second principal component, Monthly Mean Zonal Wind Anomaly'); xlabel('Year');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+%top 10% of values 
+sorted = sort(pc_1(:),'descend');
+result = sorted(1:ceil(length(sorted)*0.1));  
+top10_sw_value = min(result); %top 10% are >= than this value 
+
+%bottom 10% of values 
+sorted_bot = sort(pc_1(:),'ascend');
+result_bot = sorted_bot(1:ceil(length(sorted_bot)*0.1));  
+bot10_sw_value = max(result_bot); %bottom 10% are <= this value 
+
+top10_sw = zeros(7,1); 
+bottom10_sw = zeros(7,1); 
+for n = 1:tm
+    if pc_1(1,n) >= top10_sw_value
+        top10_sw = top10_sw + zw_eof2(:,n); %adding together all monthly anom's that are in the top 10 %
+    elseif pc_1(1,n) <= bot10_sw_value
+        bottom10_sw = bottom10_sw + zw_eof2(:,n); 
+    end
+end
+top10_sw = top10_sw/length(result); 
+bottom10_sw = bottom10_sw/length(result_bot); 
+
+% i dont know how to plot this :(
+% figure(6); 
+% subplot(2,1,1);
+% pcolor(top10_sw);
+
+% Stratosphere components
+% tes_chem dataset (320x160x156)
+tchm='/home/ograff/scripts/homework/ModesofClimate/QBOproject/tes_chem_variables.mat';
+%tchm='/Users/ilkyeongma/ilkma/PhD/2022_Spring/MET6155/Presentation(QBO)/stratosphere_comp.mat';
+load(tchm);
+%lon3 = lon2;lat3 = lat2; 
+
+lonx=103+55/60;
+latx=1+22/60;
+
+aa=lon3-lonx;
+idxx=find(abs(aa)==min(abs(aa)));
+
+aa=lat3-latx;
+idyy=find(abs(aa)==min(abs(aa)));
+%tes_chem data is 01/2005 - 12/2017 total months = 12*13 = 156 months 
+%--> qbo.dat runs from 01/1956 - 11/21
+%--> timestamp in qbo.dat that corresponts to 01/2005 - 12/2017 is the
+%589th month - 744th month 
+to3 = zeros(320,160,16);   bo3 = zeros(320,160,16); 
+th2o = zeros(320,160,16);  bh2o = zeros(320,160,16); 
+ttemp = zeros(320,160,16); btemp = zeros(320,160,16);
+t=0;b=0;
+for n = 1:156
+    if pc_1(1,n) >= top10_sw_value
+        t = t+1;
+        to3(:,:,t) = ozone_detrended(:,:,n);
+        th2o(:,:,t) = h2o_detrended(:,:,n);
+        ttemp(:,:,t) = temp_detrended(:,:,n);
+
+    elseif pc_1(1,n) <= bot10_sw_value
+        b=b+1;
+        bo3(:,:,b) = ozone_detrended(:,:,n);
+        bh2o(:,:,b) = h2o_detrended(:,:,n);
+        btemp(:,:,b) = temp_detrended(:,:,n);
+    end
+end
+top10_o3 = nanmean(to3,3);bottom10_o3 = nanmean(bo3,3);
+top10_h2o = nanmean(th2o,3);bottom10_h2o = nanmean(bh2o,3); 
+top10_temp = nanmean(ttemp,3);bottom10_temp = nanmean(btemp,3); 
+
+%ttest for top and bottom 10% of stratospheric variables 
+% A t-test is a type of inferential statistic used to determine if there is 
+%a significant difference between the means of two groups, which may be related in certain features.
+%using a two tailed ttest -> A two-tailed test is designed to determine 
+% whether a claim is true or not given a population parameter. It examines both sides 
+% of a specified data range as designated by the probability distribution involved.
+
+sig_o3top = zeros(320,160);
+sig_o3bot = zeros(320,160);
+sig_h2otop = zeros(320,160);
+sig_h2obot = zeros(320,160);
+sig_temptop = zeros(320,160);
+sig_tempbot = zeros(320,160);
+
+for i = 1:320
+    for j = 1:160 
+        h = ttest2(squeeze(to3(i,j,:)),squeeze(ozone_detrended(i,j,:)));
+        sig_o3top(i,j) = h;
+        h = ttest2(squeeze(bo3(i,j,:)),squeeze(ozone_detrended(i,j,:)));
+        sig_o3bot(i,j) = h;
+        h = ttest2(squeeze(th2o(i,j,:)),squeeze(h2o_detrended(i,j,:)));
+        sig_h2otop(i,j) = h;
+        h = ttest2(squeeze(bh2o(i,j,:)),squeeze(h2o_detrended(i,j,:)));
+        sig_h2obot(i,j) = h;
+        h = ttest2(squeeze(ttemp(i,j,:)),squeeze(temp_detrended(i,j,:)));
+        sig_temptop(i,j) = h;
+        h = ttest2(squeeze(btemp(i,j,:)),squeeze(temp_detrended(i,j,:)));
+        sig_tempbot(i,j) = h;
+
+    end
+end
+
+%dummy matricies to hold a value for if it's is significant
+xo3t = zeros(1,1); yo3t = zeros(1,1); 
+xo3b = zeros(1,1); yo3b = zeros(1,1); 
+xh2ot = zeros(1,1); yh2ot = zeros(1,1); 
+xh2ob = zeros(1,1); yh2ob = zeros(1,1); 
+xtt = zeros(1,1); ytt = zeros(1,1); 
+xtb = zeros(1,1); ytb = zeros(1,1); 
+
+for i = 1:320
+    for j = 1:160
+        if sig_o3top(i,j) == 1
+                xo3t(i,j) = lon3(i);
+                yo3t(i,j) = lat3(j);
+        end
+         if sig_o3bot(i,j) == 1
+                xo3b(i,j) = lon3(i);
+                yo3b(i,j) = lat3(j);
+         end
+         if sig_h2otop(i,j) == 1
+                xh2ot(i,j) = lon3(i);
+                yh2ot(i,j) = lat3(j);
+         end
+         if sig_h2obot(i,j) == 1
+                xh2ob(i,j) = lon3(i);
+                yh2ob(i,j) = lat3(j);
+         end
+          if sig_temptop(i,j) == 1
+                xtt(i,j) = lon3(i);
+                ytt(i,j) = lat3(j);
+          end
+           if sig_tempbot(i,j) == 1
+                xtb(i,j) = lon3(i);
+                ytb(i,j) = lat3(j);
+          end
+    end
+end
+
+
+load coast;
+%load coastlines;
+% *** Need to fix how the ttests are plotting -> right now they're just
+% with black dots but I want to find out how rhys plotted his as a contour
+% so that it doesn't block out our data. But, nevertheless the hardpart for this is
+% over! 
+markersize = 2; 
+% Ozone concentration
+figure(8);
+as=-200;es=200;
+subplot(2,1,1); 
+pcolor(lon3,lat3,top10_o3'); shading flat; h=colorbar; cmocean balance;caxis([as es]);
+hold on; plot(xo3t,yo3t,'.k','MarkerSize',markersize);
+ylabel(h,'Ozone Anomaly (ppb)','FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+xticks([0 60 120 180 240 300 359]); xticklabels({'0E','60E','120E','180E','240E','300E','360E'});
+yticks([-90 -45 0 45 90]); yticklabels({'90S','45S','0','45N','90N'});
+title('Top 10% of values of Principal Component, 70hPa Ozone Anomalies (ppb)');
+hold on; plot(long,lat,'black');plot(long+360,lat,'black');
+%plot(coastlon,coastlat,'k');plot(coastlon+360,coastlat,'k');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',12);
+
+subplot(2,1,2); 
+pcolor(lon3,lat3,bottom10_o3'); shading flat; h=colorbar; cmocean balance;caxis([as es]);
+ylabel(h,'Ozone Anomaly (ppb)','FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+hold on; plot(xo3b,yo3b,'.k','MarkerSize',markersize);
+xticks([0 60 120 180 240 300 359]); xticklabels({'0E','60E','120E','180E','240E','300E','360E'});
+yticks([-90 -45 0 45 90]); yticklabels({'90S','45S','0','45N','90N'});
+title('Bottom 10% of values of Principal Component, 70hPa Ozone Anomalies (ppb)');
+hold on; plot(long,lat,'black');plot(long+360,lat,'black'); 
+%plot(coastlon,coastlat,'k');plot(coastlon+360,coastlat,'k');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',12);
+
+% Water vapor (q:specific humidity)
+% SPECIFIC HUMIDITY refers to the weight (amount) of water vapor contained in a unit weight
+% (amount) of air (expressed as grams of water vapor per kilogram of air).
+figure(9);
+as=-20e-8;es=20e-8;
+subplot(2,1,1); 
+pcolor(lon3,lat3,top10_h2o'); shading flat; h=colorbar; cmocean balance;caxis([as es]);
+ylabel(h,'Water Vapor Anomaly (kg/kg)','FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+hold on; plot(xh2ot,yh2ot,'.k','MarkerSize',markersize);
+xticks([0 60 120 180 240 300 359]); xticklabels({'0E','60E','120E','180E','240E','300E','360E'});
+yticks([-90 -45 0 45 90]); yticklabels({'90S','45S','0','45N','90N'});
+title({'Top 10% of values of Principal Component',' 70hPa Water Vapor Anomalies (kg/kg)'});
+hold on; plot(long,lat,'black');plot(long+360,lat,'black');
+%plot(coastlon,coastlat,'k');plot(coastlon+360,coastlat,'k');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+subplot(2,1,2); 
+pcolor(lon3,lat3,bottom10_h2o'); shading flat; h=colorbar; cmocean balance;caxis([as es]);
+ylabel(h,'Water Vapor Anomaly (kg/kg)','FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+hold on; plot(xh2ob,yh2ob,'.k','MarkerSize',markersize);
+xticks([0 60 120 180 240 300 359]); xticklabels({'0E','60E','120E','180E','240E','300E','360E'});
+yticks([-90 -45 0 45 90]); yticklabels({'90S','45S','0','45N','90N'});
+title({'Bottom 10% of values of Principal Component',' 70hPa Water Vapor Anomalies (kg/kg)'});
+hold on; plot(long,lat,'black');plot(long+360,lat,'black'); 
+%plot(coastlon,coastlat,'k');plot(coastlon+360,coastlat,'k');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+% Temperature (K)
+figure(10);
+as=-2.5;es=2.5;
+subplot(2,1,1); 
+pcolor(lon3,lat3,top10_temp'); shading flat; h=colorbar; cmocean balance;caxis([as es]);
+ylabel(h,'Temperature Anomaly (K)','FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+hold on; plot(xtt,ytt,'.k','MarkerSize',markersize);
+xticks([0 60 120 180 240 300 359]); xticklabels({'0E','60E','120E','180E','240E','300E','360E'});
+yticks([-90 -45 0 45 90]); yticklabels({'90S','45S','0','45N','90N'});
+title('Top 10% of values of Principal Component, 70hPa Temperature Anomalies (K)');
+hold on; plot(long,lat,'black');plot(long+360,lat,'black');
+%plot(coastlon,coastlat,'k');plot(coastlon+360,coastlat,'k');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+subplot(2,1,2); 
+pcolor(lon3,lat3,bottom10_temp'); shading flat; h=colorbar; cmocean balance;caxis([as es]);
+ylabel(h,'Temperature Anomaly (K)','FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+hold on; plot(xtb,ytb,'.k','MarkerSize',markersize);
+xticks([0 60 120 180 240 300 359]); xticklabels({'0E','60E','120E','180E','240E','300E','360E'});
+yticks([-90 -45 0 45 90]); yticklabels({'90S','45S','0','45N','90N'});
+title('Bottom 10% of values of Principal Component, 70hPa Temperature Anomalies (K)');
+hold on; plot(long,lat,'black');plot(long+360,lat,'black'); 
+%plot(coastlon,coastlat,'k');plot(coastlon+360,coastlat,'k');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+%isolating strat variables to singapore location for lead/lag corr.
+%analysis 
+
+sing_variables(1,:) = squeeze(ozone_detrended(idxx,idyy,:));
+sing_variables(2,:) = squeeze(h2o_detrended(idxx,idyy,:));
+
+sing_variables(3,:)= squeeze(temp_detrended(idxx,idyy,:));
+word=({'Ozone (ppb)','Water Vapor (kg/kg)','Temperature (K)'});
+tto=101;
+for k=1:3
+
+correlationo3_lag = zeros(tto,1);
+
+for i = 1:tto 
+    [r,p] = corrcoef(sing_variables(k,1:156+1-i),zw_eof2(7,i:156));
+    correlationo3_lag(i,1) = r(2,1); 
+end
+
+%Calculating ozone lead, temperature lags , and adding a timestep to the temperature variable each
+%time it loops to make a total lead of 12 timesteps -> 3 days 
+correlationo3_lead = zeros(tto,1);
+for i = 1:tto
+    [r,p] = corrcoef(zw_eof2(7,1:156+1-i),sing_variables(k,i:156));
+    correlationo3_lead(i,1) = r(2,1); 
+end
+
+leadlag(tto:-1:1)=correlationo3_lead;
+leadlag(tto:tto*2-1)=correlationo3_lag;
+
+figure(10+k);
+h1=plot(-tto+1:1:-1,leadlag(1:tto-1),'-bo');
+hold on;grid on;
+
+h2=plot(0,leadlag(tto),'-ko');
+h3=plot(1:tto-1,leadlag(tto+1:end),'-or');
+hold off;
+
+legend([h1 h2 h3],[word{k},' is leading Zonal Wind'],'Zero Lead & Lag',['Zonal Wind is leading ', ]);
+title(['Lead & Lag Correlation Between Monthly Mean Zonal Wind Anomaly (m/s) and ', word{k},' Anomaly']);
+xlabel('Time (months)');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+end
+
+
+% Surface components
+%schm='/Users/ilkyeongma/ilkma/PhD/2022_Spring/MET6155/Presentation(QBO)/surface_comp.mat';
+schm = '/home/ograff/scripts/homework/ModesofClimate/QBOproject/surface_comp.mat';
+load(schm);
+
+tmslp = zeros(160,81,16); bmslp = zeros(160,81,16);
+tsst = zeros(160,81,16); bsst = zeros(160,81,16); 
+t= 0; b = 0;
+for n = 1:156
+    if pc_1(1,n) >= top10_sw_value
+        t = t+1;
+        tmslp(:,:,t) = mslp_detrended(:,:,n);
+        tsst(:,:,t) = sst_detrended(:,:,n); 
+    elseif pc_1(1,n) <= bot10_sw_value
+        b = b+1;
+        bmslp(:,:,b) = mslp_detrended(:,:,n);
+        bsst(:,:,b) = sst_detrended(:,:,n);
+    end
+end
+% top10_mslp = top10_mslp/length(result);  bottom10_mslp = bottom10_mslp/length(result_bot); 
+% top10_sst = top10_sst/length(result);    bottom10_sst = bottom10_sst/length(result_bot); 
+top10_mslp = nanmean(tmslp,3);  bottom10_mslp = nanmean(bmslp,3);
+top10_sst = nanmean(tsst,3);   bottom10_sst = nanmean(bsst,3);
+
+
+%ttest 
+sig_mslptop = zeros(160,81);
+sig_mslpbot = zeros(160,81);
+sig_ssttop = zeros(160,81);
+sig_sstbot = zeros(160,81);
+
+for i = 1:160
+    for j = 1:81 
+        h = ttest2(squeeze(tmslp(i,j,:)),squeeze(mslp_detrended(i,j,:)));
+        sig_mslptop(i,j) = h;
+        h = ttest2(squeeze(bmslp(i,j,:)),squeeze(mslp_detrended(i,j,:)));
+        sig_mslpbot(i,j) = h;
+        h = ttest2(squeeze(tsst(i,j,:)),squeeze(sst_detrended(i,j,:)));
+        sig_ssttop(i,j) = h;
+        h = ttest2(squeeze(bsst(i,j,:)),squeeze(sst_detrended(i,j,:)));
+        sig_sstbot(i,j) = h;
+    end
+end
+
+%dummy matricies to hold a value for if it's is significant
+xmslpt = zeros(1,1); ymslpt = zeros(1,1); 
+xmslpb = zeros(1,1); ymslpb = zeros(1,1); 
+xsstt = zeros(1,1); ysstt = zeros(1,1); 
+xsstb = zeros(1,1); ysstb = zeros(1,1); 
+for i = 1:160
+    for j = 1:81
+        if sig_mslptop(i,j) == 1
+                %creates an matricies of lat/lon locations that pvalue is <0.05
+                xmslpt(i,j) = lon2(i);
+                ymslpt(i,j) = lat2(j);
+        end
+         if sig_mslpbot(i,j) == 1
+                %creates an matricies of lat/lon locations that pvalue is <0.05
+                xmslpb(i,j) = lon2(i);
+                ymslpb(i,j) = lat2(j);
+         end
+         if sig_ssttop(i,j) == 1
+                %creates an matricies of lat/lon locations that pvalue is <0.05
+                xsstt(i,j) = lon2(i);
+                ysstt(i,j) = lat2(j);
+         end
+         if sig_sstbot(i,j) == 1
+                %creates an matricies of lat/lon locations that pvalue is <0.05
+                xsstb(i,j) = lon2(i);
+                ysstb(i,j) = lat2(j);
+         end
+    end
+end
+
+
+% MSLP
+figure(14);
+as=-500;es=-as;
+markersize = 3;
+subplot(2,1,1); 
+pcolor(lon2,lat2,top10_mslp'); shading flat; h=colorbar; cmocean balance;caxis([as es]);
+ylabel(h,'Pressure Anomaly (Pa)','FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+hold on; plot(xmslpt,ymslpt,'.k','MarkerSize',markersize);
+xticks([0 60 120 180 240 300 359]); xticklabels({'0E','60E','120E','180E','240E','300E','360E'});
+yticks([-90 -45 0 45 90]); yticklabels({'90S','45S','0','45N','90N'});
+title('Top 10% of values of Principal Component, MSLP Anomalies (Pa)');
+hold on; plot(long,lat,'black');plot(long+360,lat,'black');
+%plot(coastlon,coastlat,'k');plot(coastlon+360,coastlat,'k');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+subplot(2,1,2); 
+pcolor(lon2,lat2,bottom10_mslp'); shading flat; h=colorbar; cmocean balance;caxis([as es]);
+ylabel(h,'Pressure Anomaly (Pa)','FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+hold on; plot(xmslpb,ymslpb,'.k','MarkerSize',markersize);
+xticks([0 60 120 180 240 300 359]); xticklabels({'0E','60E','120E','180E','240E','300E','360E'});
+yticks([-90 -45 0 45 90]); yticklabels({'90S','45S','0','45N','90N'});
+title('Bottom 10% of values of Principal Component, MSLP Anomalies (Pa)');
+hold on; plot(long,lat,'black');plot(long+360,lat,'black'); 
+%plot(coastlon,coastlat,'k');plot(coastlon+360,coastlat,'k');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+% SST 
+figure(15);
+as=-1.5;es=-as;
+subplot(2,1,1); 
+pcolor(lon2,lat2,top10_sst'); shading flat; h=colorbar; cmocean balance;caxis([as es]);
+ylabel(h,'SST Anomaly (K)','FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+hold on; plot(xsstt,ysstt,'.k','MarkerSize',markersize);
+xticks([0 60 120 180 240 300 359]); xticklabels({'0E','60E','120E','180E','240E','300E','360E'});
+yticks([-90 -45 0 45 90]); yticklabels({'90S','45S','0','45N','90N'});
+title('Top 10% of values of Principal Component, SST Anomalies (K)');
+hold on; plot(long,lat,'black');plot(long+360,lat,'black');
+%plot(coastlon,coastlat,'k');plot(coastlon+360,coastlat,'k');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+subplot(2,1,2); 
+pcolor(lon2,lat2,bottom10_sst'); shading flat; h=colorbar; cmocean balance;caxis([as es]);
+ylabel(h,'SST Anomaly (K)','FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+hold on; plot(xsstb,ysstb,'.k','MarkerSize',markersize);
+xticks([0 60 120 180 240 300 359]); xticklabels({'0E','60E','120E','180E','240E','300E','360E'});
+yticks([-90 -45 0 45 90]); yticklabels({'90S','45S','0','45N','90N'});
+title('Bottom 10% of values of Principal Component, SST Anomalies (K)');
+hold on; plot(long,lat,'black');plot(long+360,lat,'black'); 
+%plot(coastlon,coastlat,'k');plot(coastlon+360,coastlat,'k');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+
+lonx=103+55/60;
+latx=1+22/60;
+
+aa=lon2-lonx;
+idxx=find(abs(aa)==min(abs(aa)));
+
+aa=lat2-latx;
+idyy=find(abs(aa)==min(abs(aa)));
+
+
+
+sing_variables1(1,:) = squeeze(mslp_detrended(idxx,idyy,:));
+
+%sing_variables1(2,:) = squeeze(sst_detrended(idxx,idyy,:));
+
+word=({'MSLP (Pa)'});
+tto=101;
+for k=1:1
+
+correlationo3_lag = zeros(tto,1);
+
+for i = 1:tto 
+    [r,p] = corrcoef(sing_variables1(k,1:156+1-i),zw_eof2(7,i:156));
+    correlationo3_lag(i,1) = r(2,1); 
+end
+
+%Calculating ozone lead, temperature lags , and adding a timestep to the temperature variable each
+%time it loops to make a total lead of 12 timesteps -> 3 days 
+correlationo3_lead = zeros(tto,1);
+for i = 1:tto
+    [r,p] = corrcoef(zw_eof2(7,1:156+1-i),sing_variables1(k,i:156));
+    correlationo3_lead(i,1) = r(2,1); 
+end
+
+leadlag(tto:-1:1)=correlationo3_lead;
+leadlag(tto:tto*2-1)=correlationo3_lag;
+
+figure(15+k);
+h1=plot(-tto+1:1:-1,leadlag(1:tto-1),'-bo');
+hold on;grid on;
+
+h2=plot(0,leadlag(tto),'-ko');
+h3=plot(1:tto-1,leadlag(tto+1:end),'-or');
+hold off;
+
+legend([h1 h2 h3],[word{k},' is leading Zonal wind'],'Zero Lead & Lag',['Zonal wind is leading ', word{k}]);
+title(['Lead & Lag Correlation Between the Monthly Mean Zonal Wind Anomaly (m/s) and ', word{k}]);
+xlabel('Time (months)');
+set(gca,'FontWeight','bold' ...
+    ,'FontName', 'Times New Roman','FontSize',16);
+
+end
